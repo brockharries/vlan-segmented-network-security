@@ -1,0 +1,18 @@
+# Never commit real network state
+*.env
+!*.example*
+
+# Real controller exports / backups (contain real MACs, subnets, keys)
+*.unf
+*backup*.tgz
+unifi/*.json
+pihole/teleporter*.tar.gz
+
+# Real DNS / resolver state
+pihole/*.db
+*.key
+*.pem
+
+# OS / editor noise
+.DS_Store
+*.swp
