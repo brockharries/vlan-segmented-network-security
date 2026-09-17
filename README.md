@@ -153,3 +153,5 @@ The backbone stays the same: segments with default-deny between them, DNS as a c
 ## Why I built this (in one line)
 
 Network segmentation, DNS filtering, and firewall policy are things I'd otherwise only get to talk about. This way, when a customer asks why their flat network is a risk or what default-deny actually costs day-to-day, I'm answering from a network I run, not a diagram I read.
+
+More write-ups and the live demo site: [brockharries.dev](https://brockharries.dev).
