@@ -30,7 +30,7 @@ Stateful: established/related return traffic is always permitted; these rules go
 |---|---|---|---|---|---|---|
 | 1 | Allow established/related | ACCEPT | any | any | state match | Return traffic for existing sessions |
 | 2 | Trusted → Management admin | ACCEPT | `TRUSTED_NET` | `MGMT_NET` | 443/tcp, 22/tcp | Only path to network-gear UIs |
-| 3 | Trusted → Servers | ACCEPT | `TRUSTED_NET` | `SERVERS_NET` | any | Personal devices use the services |
+| 3 | Trusted → Servers | ACCEPT | `TRUSTED_NET` | `SERVERS_NET` | any | Personal devices use the services. Every port, so admin ports too; see policy footnote 6 |
 | 4 | Trusted → IoT cast/control | ACCEPT | `TRUSTED_NET` | `IOT_NET` | app-specific ports | Casting/control only; paired with mDNS reflection |
 | 5 | IoT → Pi-hole DNS | ACCEPT | `IOT_NET` | `PIHOLE_HOST` | 53/tcp+udp | The single IoT→Servers allow |
 | 6 | **Drop IoT → private** | DROP (log) | `IOT_NET` | `ALL_PRIVATE` | any | Logged; a probing smart plug is signal |
@@ -42,6 +42,11 @@ Stateful: established/related return traffic is always permitted; these rules go
 > Rules 6–9 are technically redundant with rule 10. They exist anyway: (a) the high-risk drops
 > get their own hit counters and logs, and (b) if someone later adds a careless broad allow
 > below them, the specific drops still hold for the segments that matter most.
+
+These are IPv4 transit rules: they cover traffic passing through the gateway from one VLAN to
+another. Traffic addressed to the gateway itself (its UI, SSH, DNS) is matched by a separate
+rule set (LAN Local in UniFi terms) and needs its own drops for the untrusted segments. IPv6
+needs equivalent rules, or has to be disabled on these networks.
 
 ## WAN In (port forwards)
 

@@ -25,7 +25,7 @@ Return traffic for established sessions is always allowed (stateful firewall); t
 | From \ To | Management | Trusted | IoT | Servers | DMZ | Guest | Internet |
 |---|---|---|---|---|---|---|---|
 | **Management** | n/a | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (updates) |
-| **Trusted** | ✅ admin UIs | n/a | ✅ cast/control¹ | ✅ use services | ❌ ² | ❌ | ✅ |
+| **Trusted** | ✅ admin UIs | n/a | ✅ cast/control¹ | ✅ all ports⁶ | ❌ ² | ❌ | ✅ |
 | **IoT** | ❌ | ❌ | n/a | ✅ DNS only³ | ❌ | ❌ | ✅ |
 | **Servers** | ❌ | ❌ | ❌ | n/a | ❌ ² | ❌ | ✅ |
 | **DMZ** | ❌ | ❌ | ❌ | ❌ ⁴ | n/a | ❌ | ✅ |
@@ -39,9 +39,13 @@ Return traffic for established sessions is always allowed (stateful firewall); t
    dies the day it gets a blanket allow.
 2. **Nothing internal initiates into the DMZ, including me.** Admin access to DMZ hosts rides
    the identity-based mesh VPN (Tailscale), not an inter-VLAN allow. Rationale: the DMZ is the
-   most-likely-compromised segment; an "admin convenience" hole from Servers→DMZ becomes a
-   pivot path pointing at the segment with the family photos. This rule has personally
-   inconvenienced me mid-deployment. It stays.
+   most-likely-compromised segment. A Servers→DMZ allow would not let a DMZ host open
+   connections back; the firewall is stateful, so an admin connection permits replies from
+   the DMZ host and nothing unsolicited. The reason to refuse it is that it makes "has a
+   Servers address" enough to reach the most exposed hosts on the network. Either admin path
+   still needs containment, because a session into a compromised host is exposed to that
+   host however it arrived (see the limits below). This rule has personally inconvenienced
+   me mid-deployment. It stays.
 3. **IoT → Servers, DNS only:** one allow, to one host (Pi-hole), on port 53. IoT devices get
    name resolution and filtering; they do not get to browse the server segment.
 4. **DMZ initiates into nothing internal, not even DNS.** DMZ hosts use public resolvers.
@@ -51,6 +55,11 @@ Return traffic for established sessions is always allowed (stateful firewall); t
    realtime-media workload that genuinely cannot ride an outbound tunnel. Every web-facing
    service instead uses outbound-only tunnels (zero inbound ports). Each forward exists
    because it survived the question "can this ride the tunnel instead?"
+6. **Trusted → Servers, every port.** This is the one broad allow in the table, and it fails
+   the "specific" test in the standing rules below. It exists so personal devices can use
+   whatever service I stand up without a rule change. The cost: the firewall does not enforce
+   VPN-only administration of the server segment. SSH and the hypervisor UI are reachable
+   from any device on Trusted. Listed under the limits too.
 
 ## Standing rules
 
@@ -74,6 +83,15 @@ Return traffic for established sessions is always allowed (stateful firewall); t
 - **VLAN assignment is by SSID/port, not identity.** A hostile device that gets onto the
   Trusted SSID is trusted. At home the Wi-Fi credential is the control; at scale this is why
   802.1X/NAC exists.
+- **Trusted → Servers is a blanket allow.** I use the mesh VPN for administration, but the
+  firewall would let a compromised laptop on Trusted reach every port on every server. The
+  fix is to narrow that rule to the service ports and leave admin ports to the mesh. Not done
+  yet.
+- **These are IPv4 rules for traffic between VLANs.** Traffic addressed to the gateway itself
+  (its management UI, SSH, the DNS and DHCP it offers on each VLAN) is handled by a separate
+  rule set and needs its own drops for IoT, Guest and DMZ. IPv6 needs an equivalent rule set,
+  or has to stay disabled on these networks. A policy that only exists for IPv4 transit
+  traffic has holes on both sides.
 - **The admin plane is a second network, and it needs its own policy.** Admin access over the
   mesh VPN means DMZ hosts run a mesh agent, so a compromised DMZ host doesn't just hold a
   DMZ address; it holds a mesh identity. The inter-VLAN firewall never sees that overlay
@@ -87,3 +105,8 @@ Return traffic for established sessions is always allowed (stateful firewall); t
   regardless of the destination the device asked for, and block the known DoH endpoints at
   the firewall. DoH to an endpoint I haven't identified still gets through; that's a real
   gap, narrowed rather than closed.
+- **Recursive DNS is a privacy improvement, not privacy.** Unbound keeps any one resolver
+  operator from seeing every query, but recursion is unencrypted and the ISP can read it on
+  the wire. I used to list a public resolver as Pi-hole's second upstream for availability.
+  Pi-hole does not hold a second upstream in reserve, so that leaked ordinary queries. A
+  second identical resolver box replaced it.
